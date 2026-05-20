@@ -414,12 +414,39 @@ function APl({rr}){
 function AAuth({cfg,saveCfg}){
   const [raw,setRaw]=useState((cfg.allowedNames||[]).join('\n'));
   const [saved,setSaved]=useState(false);
-  const names=(cfg.allowedNames||[]);
+  const names=cfg.allowedNames||[];
+  const active=cfg.requireAuth===true;
+
   return <div>
+    {/* Toggle principal */}
+    <Card sx={{marginBottom:10}}>
+      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+        <div>
+          <div style={{fontWeight:700,fontSize:14,color:C.txt}}>Control de acceso</div>
+          <div style={{fontSize:12,color:C.muted,marginTop:3}}>
+            {active
+              ? '🔒 Solo los nombres de la lista pueden registrarse'
+              : '🔓 Cualquiera con el link puede registrarse'}
+          </div>
+        </div>
+        <button onClick={async()=>{ await saveCfg({...cfg,requireAuth:!active}); setSaved(false); }}
+          style={{background:active?C.grn:C.card,border:`2px solid ${active?C.grn:C.brd}`,borderRadius:20,width:52,height:28,cursor:'pointer',position:'relative',transition:'all .2s',flexShrink:0}}>
+          <div style={{position:'absolute',top:3,left:active?26:3,width:18,height:18,background:'#fff',borderRadius:'50%',transition:'left .2s'}}/>
+        </button>
+      </div>
+      {active&&<div style={{marginTop:10,padding:'8px 10px',background:'#1a1500',borderRadius:7,fontSize:11,color:C.gold}}>
+        ⚠ Control activo — solo los nombres de la lista pueden registrarse.
+      </div>}
+      {!active&&<div style={{marginTop:10,padding:'8px 10px',background:'#0d1a0b',borderRadius:7,fontSize:11,color:C.muted}}>
+        Registro abierto. Puedes activar el control cuando quieras cerrar la inscripción.
+      </div>}
+    </Card>
+
+    {/* Lista de nombres */}
     <Card sx={{marginBottom:10}}>
       <Lbl text="Lista de participantes autorizados"/>
-      <div style={{color:C.muted,fontSize:12,marginBottom:10}}>Un nombre por línea. Solo quienes estén en esta lista pueden registrarse. La comparación ignora mayúsculas y tildes.</div>
-      <textarea value={raw} onChange={e=>{setRaw(e.target.value);setSaved(false);}} rows={12}
+      <div style={{color:C.muted,fontSize:12,marginBottom:10}}>Un nombre por línea. Se usa solo cuando el control está activo. Ignora mayúsculas y tildes.</div>
+      <textarea value={raw} onChange={e=>{setRaw(e.target.value);setSaved(false);}} rows={10}
         placeholder={'Juan García\nMaría López\nPedro Martínez\n...'}
         style={{background:C.bg,border:`1px solid ${C.brd}`,borderRadius:6,padding:'10px 12px',color:C.txt,fontSize:13,outline:'none',fontFamily:"'Nunito',sans-serif",width:'100%',resize:'vertical'}}/>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginTop:10}}>
@@ -431,7 +458,7 @@ function AAuth({cfg,saveCfg}){
       </div>
     </Card>
     {names.length>0&&<Card>
-      <Lbl text="Lista activa"/>
+      <Lbl text="Lista guardada"/>
       <div style={{display:'flex',flexWrap:'wrap',gap:4,marginTop:4}}>
         {names.map(n=><span key={n} style={{background:C.card2,border:`1px solid ${C.brd}`,borderRadius:5,padding:'3px 8px',fontSize:12,color:C.txt}}>{n}</span>)}
       </div>
@@ -458,11 +485,13 @@ function Participant({cfg,back}){
     if(!pwd.trim()){setErr('Ingresa tu contraseña');return;}
     const k=pk(name.trim()),ex=await S.get(k);
     if(isNew){
-      // Verificar lista de acceso
-      const allowed=cfg.allowedNames||[];
-      if(allowed.length>0){
-        const match=allowed.some(n=>normName(n)===normName(name.trim()));
-        if(!match){setErr('Tu nombre no está en la lista de participantes autorizados. Verifica con el administrador.');return;}
+      // Verificar lista de acceso solo si el control está activo
+      if(cfg.requireAuth===true){
+        const allowed=cfg.allowedNames||[];
+        if(allowed.length>0){
+          const match=allowed.some(n=>normName(n)===normName(name.trim()));
+          if(!match){setErr('Tu nombre no está en la lista de participantes autorizados. Verifica con el administrador.');return;}
+        }
       }
       if(ex){setErr('Ese nombre ya está registrado');return;}
       const np={name:name.trim(),pwd,t1:{gm:{},submitted:false}};
@@ -795,7 +824,7 @@ function Leaderboard({cfg,back}){
 // ── APP ROOT ──────────────────────────────────────────────────
 export default function App(){
   const [screen,setScreen]=useState('home'),[cfg,setCfg]=useState(null),[loading,setLoading]=useState(true);
-  useEffect(()=>{S.get('cfg').then(c=>{setCfg(c||{adminPwd:'',phase:'setup',allowedNames:[],closingDate:''});setLoading(false);});},[]);
+  useEffect(()=>{S.get('cfg').then(c=>{setCfg(c||{adminPwd:'',phase:'setup',allowedNames:[],closingDate:'',requireAuth:false});setLoading(false);});},[]);
   const saveCfg=async nc=>{await S.set('cfg',nc);setCfg(nc);};
   if(loading)return <div style={{background:'#070f06',minHeight:'100vh',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:"'Nunito',sans-serif",color:C.gold,fontSize:18}}>Cargando...</div>;
   return <>
