@@ -415,37 +415,10 @@ function AAuth({cfg,saveCfg}){
   const [raw,setRaw]=useState((cfg.allowedNames||[]).join('\n'));
   const [saved,setSaved]=useState(false);
   const names=cfg.allowedNames||[];
-  const active=cfg.requireAuth===true;
-
   return <div>
-    {/* Toggle principal */}
-    <Card sx={{marginBottom:10}}>
-      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-        <div>
-          <div style={{fontWeight:700,fontSize:14,color:C.txt}}>Control de acceso</div>
-          <div style={{fontSize:12,color:C.muted,marginTop:3}}>
-            {active
-              ? '🔒 Solo los nombres de la lista pueden registrarse'
-              : '🔓 Cualquiera con el link puede registrarse'}
-          </div>
-        </div>
-        <button onClick={async()=>{ await saveCfg({...cfg,requireAuth:!active}); setSaved(false); }}
-          style={{background:active?C.grn:C.card,border:`2px solid ${active?C.grn:C.brd}`,borderRadius:20,width:52,height:28,cursor:'pointer',position:'relative',transition:'all .2s',flexShrink:0}}>
-          <div style={{position:'absolute',top:3,left:active?26:3,width:18,height:18,background:'#fff',borderRadius:'50%',transition:'left .2s'}}/>
-        </button>
-      </div>
-      {active&&<div style={{marginTop:10,padding:'8px 10px',background:'#1a1500',borderRadius:7,fontSize:11,color:C.gold}}>
-        ⚠ Control activo — solo los nombres de la lista pueden registrarse.
-      </div>}
-      {!active&&<div style={{marginTop:10,padding:'8px 10px',background:'#0d1a0b',borderRadius:7,fontSize:11,color:C.muted}}>
-        Registro abierto. Puedes activar el control cuando quieras cerrar la inscripción.
-      </div>}
-    </Card>
-
-    {/* Lista de nombres */}
     <Card sx={{marginBottom:10}}>
       <Lbl text="Lista de participantes autorizados"/>
-      <div style={{color:C.muted,fontSize:12,marginBottom:10}}>Un nombre por línea. Se usa solo cuando el control está activo. Ignora mayúsculas y tildes.</div>
+      <div style={{color:C.muted,fontSize:12,marginBottom:10}}>Un nombre por línea. Solo quienes estén en esta lista pueden registrarse. Si la lista está vacía, cualquiera puede registrarse.</div>
       <textarea value={raw} onChange={e=>{setRaw(e.target.value);setSaved(false);}} rows={10}
         placeholder={'Juan García\nMaría López\nPedro Martínez\n...'}
         style={{background:C.bg,border:`1px solid ${C.brd}`,borderRadius:6,padding:'10px 12px',color:C.txt,fontSize:13,outline:'none',fontFamily:"'Nunito',sans-serif",width:'100%',resize:'vertical'}}/>
@@ -458,27 +431,22 @@ function AAuth({cfg,saveCfg}){
       </div>
     </Card>
     {names.length>0&&<Card>
-      <Lbl text="Lista guardada"/>
+      <Lbl text="Lista activa"/>
+      <div style={{color:C.muted,fontSize:11,marginBottom:8}}>Con esta lista activa solo estos participantes pueden registrarse.</div>
       <div style={{display:'flex',flexWrap:'wrap',gap:4,marginTop:4}}>
         {names.map(n=><span key={n} style={{background:C.card2,border:`1px solid ${C.brd}`,borderRadius:5,padding:'3px 8px',fontSize:12,color:C.txt}}>{n}</span>)}
       </div>
     </Card>}
+    {names.length===0&&<Card><div style={{color:C.muted,fontSize:12,textAlign:'center',padding:'10px 0'}}>Lista vacía — cualquiera con el link puede registrarse.</div></Card>}
   </div>;
 }
 
 // ── PARTICIPANT ───────────────────────────────────────────────
-function Participant({cfg:cfgProp,back}){
+function Participant({cfg,back}){
   const [auth,setAuth]=useState(false),[pd,setPd]=useState(null);
   const [name,setName]=useState(''),[pwd,setPwd]=useState(''),[isNew,setIsNew]=useState(false),[err,setErr]=useState('');
   const [rr,setRr]=useState(null);
-  const [cfg,setCfg]=useState(cfgProp);
-
-  // Siempre leer cfg fresco del storage al entrar
-  useEffect(()=>{
-    S.get('cfg').then(c=>{ if(c) setCfg(c); });
-  },[]);
-
-  useEffect(()=>{if(auth)Promise.all([S.get('rr'),S.get('cfg')]).then(([r,c])=>{setRr(r||{gm:{},cl:{}});if(c)setCfg(c);});},[auth]);
+  useEffect(()=>{if(auth)S.get('rr').then(r=>setRr(r||{gm:{},cl:{}}));},[auth]);
 
   // Verificar si las predicciones están abiertas
   const isOpen=(c)=>{
@@ -492,14 +460,6 @@ function Participant({cfg:cfgProp,back}){
     if(!pwd.trim()){setErr('Ingresa tu contraseña');return;}
     const k=pk(name.trim()),ex=await S.get(k);
     if(isNew){
-      // Verificar lista de acceso solo si el control está activo
-      if(cfg.requireAuth===true){
-        const allowed=cfg.allowedNames||[];
-        if(allowed.length>0){
-          const match=allowed.some(n=>normName(n)===normName(name.trim()));
-          if(!match){setErr('Tu nombre no está en la lista de participantes autorizados. Verifica con el administrador.');return;}
-        }
-      }
       if(ex){setErr('Ese nombre ya está registrado');return;}
       const np={name:name.trim(),pwd,t1:{gm:{},submitted:false}};
       await S.set(k,np);setPd(np);setAuth(true);
