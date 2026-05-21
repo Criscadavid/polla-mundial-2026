@@ -467,11 +467,18 @@ function AAuth({cfg,saveCfg}){
 }
 
 // ── PARTICIPANT ───────────────────────────────────────────────
-function Participant({cfg,back}){
+function Participant({cfg:cfgProp,back}){
   const [auth,setAuth]=useState(false),[pd,setPd]=useState(null);
   const [name,setName]=useState(''),[pwd,setPwd]=useState(''),[isNew,setIsNew]=useState(false),[err,setErr]=useState('');
   const [rr,setRr]=useState(null);
-  useEffect(()=>{if(auth)S.get('rr').then(r=>setRr(r||{gm:{},cl:{}}));},[auth]);
+  const [cfg,setCfg]=useState(cfgProp);
+
+  // Siempre leer cfg fresco del storage al entrar
+  useEffect(()=>{
+    S.get('cfg').then(c=>{ if(c) setCfg(c); });
+  },[]);
+
+  useEffect(()=>{if(auth)Promise.all([S.get('rr'),S.get('cfg')]).then(([r,c])=>{setRr(r||{gm:{},cl:{}});if(c)setCfg(c);});},[auth]);
 
   // Verificar si las predicciones están abiertas
   const isOpen=(c)=>{
