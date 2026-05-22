@@ -1088,7 +1088,7 @@ export default function App() {
 
   useEffect(() => {
     S.get('cfg').then(c => {
-      setCfg(c || { adminPwd:'', phase:'setup', closingDate:'' });
+      setCfg(c || { adminPwd:'', phase:'p1_open', closingDate:'' });
       setLoading(false);
     });
   }, []);
